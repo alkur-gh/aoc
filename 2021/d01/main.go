@@ -4,7 +4,7 @@ import (
     "fmt"
     "os"
     "bufio"
-    "io"
+    "strconv"
 )
 
 func check(e error) {
@@ -13,41 +13,29 @@ func check(e error) {
     }
 }
 
-func sum(nums []int) (total int) {
-    total = 0
-    for _, num := range nums {
-        total += num
-    }
-    return
-}
-
 func countIncreasementsSlidingWindow(path string, window_size int) (count int) {
     f, err := os.Open(path)
     check(err)
     defer f.Close()
-    reader := bufio.NewReader(f)
 
-    var num int
-    window := make([]int, 0, window_size + 1)
+    window := make([]int, 0, window_size)
+    front_idx := 0
     count = 0
 
-    for {
-        if _, err := fmt.Fscanln(reader, &num); err == io.EOF {
-            break
-        } else {
-            check(err)
-        }
+    scanner := bufio.NewScanner(f)
 
-        window = append(window, num)
-        if len(window) > window_size {
-            if sum(window[1:]) > sum(window[:window_size]) {
+    for scanner.Scan() {
+        num, err := strconv.Atoi(scanner.Text())
+        check(err)
+
+        if len(window) < window_size {
+            window = append(window, num)
+        } else {
+            if num > window[front_idx] {
                 count++
             }
-            /* GC won't collect first element
-             * yet after recreation of array as a result of `append`
-             * there won't be any garbage, prayge
-             */
-            window = window[1:]
+            window[front_idx] = num
+            front_idx = (front_idx + 1) % window_size
         }
     }
 
