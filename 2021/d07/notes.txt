@@ -1,0 +1,2 @@
+seems like the costs form convex function, so maybe it's possible to speed up
+the solution by using some kind of gradient descent, but too lazy for this shit
