@@ -25,8 +25,8 @@ func TestCountPaths(t *testing.T) {
 
 func BenchmarkCountPaths(b *testing.B) {
     path := "./files/input.txt"
-    system := ReadCaveSystem(path)
-    for n := 0; n < b.N; n++ {
+    for i := 0; i < b.N; i++ {
+        system := ReadCaveSystem(path)
         CountPaths(system)
     }
 }
