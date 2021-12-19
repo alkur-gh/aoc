@@ -2,119 +2,54 @@ package main
 
 import (
     "fmt"
-    "strconv"
+    "os"
+    "bufio"
+    "day18/node"
 )
 
-func max(a, b int) int {
-    if a > b {
-        return a
-    } else {
-        return b
+func ReadNodes(path string) []*node.Node {
+    f, _ := os.Open(path)
+    defer f.Close()
+    scanner := bufio.NewScanner(f)
+    var nodes []*node.Node
+    for scanner.Scan() {
+        nodes = append(nodes, node.Parse(scanner.Text()))
     }
+    return nodes
 }
 
-type Node interface {
-    magnitude() int
-    height() int
-    add(Node) Node
-    reduce() (Node, bool)
-}
-
-type PairNode struct {
-    left, right Node
-    h int
-}
-
-type ValueNode int
-
-func MakePairNode(left, right Node) PairNode {
-    height := 1 + max(left.height(), right.height())
-    return PairNode{left, right, height}
-}
-
-func (p PairNode) magnitude() int {
-    return 3 * p.left.magnitude() + 2 * p.right.magnitude()
-}
-
-func (p PairNode) height() int {
-    return p.h
-}
-
-func (p PairNode) add(node Node) Node {
-    return MakePairNode(p, node)
-}
-
-func (p PairNode) reduce() (Node, bool) {
-    if p.height() <= 4 {
-        return p, false
+func AddUpNodes(nodes ...*node.Node) *node.Node {
+    res := nodes[0]
+    n := len(nodes)
+    for i := 1; i < n; i++ {
+        res = res.Add(nodes[i])
     }
+    return res
+}
 
-    current := p
-    parent_left := p
-    parent_right := p
-    for i := 4; i >= 1; i-- {
-        if current.left.height() == i {
-            parent_right = current
-            current, _ = current.left.(PairNode)
-        } else {
-            parent_left = current
-            current, _ = current.right.(PairNode)
+func BestTwoSum(nodes []*node.Node) int {
+    n := len(nodes)
+    max := 0
+    for i := 0; i < n; i++ {
+        for j := 0; j < n; j++ {
+            if i != j {
+                res := AddUpNodes(nodes[i], nodes[j])
+                magnitude := res.Magnitude()
+                if magnitude > max {
+                    max = magnitude
+                }
+            }
         }
     }
-
-    fmt.Println(parent_left)
-    fmt.Println(parent_right)
-    fmt.Println(current)
-
-    return p, true
-}
-
-func (p PairNode) String() string {
-    return fmt.Sprintf("[%s,%s]", p.left, p.right)
-}
-
-func (v ValueNode) magnitude() int {
-    return int(v)
-}
-
-func (v ValueNode) height() int {
-    return 0
-}
-
-func (v ValueNode) add(node Node) Node {
-    return MakePairNode(v, node)
-}
-
-func (v ValueNode) reduce() (Node, bool) {
-    panic("unexpected")
-}
-
-func (v ValueNode) String() string {
-    return strconv.Itoa(int(v))
-}
-
-func ParseNode(s string) Node {
-    stack := []Node{}
-    for _, r := range s {
-        if (r >= '0') && (r <= '9') {
-            num := int(r - '0')
-            stack = append(stack, ValueNode(num))
-        } else if r == ']' {
-            n := len(stack)
-            stack[n - 2] = MakePairNode(stack[n - 2], stack[n - 1])
-            stack = stack[:n - 1]
-        }
-    }
-    return stack[0]
+    return max
 }
 
 func main() {
-    p1 := ParseNode("[[[[4,3],4],4],[7,[[8,4],9]]]")
-    p2 := ParseNode("[1,1]")
-    root := p1.add(p2)
-//    fmt.Println(root)
-//    fmt.Println(root.height())
-//    fmt.Println(p1.reduce())
-    fmt.Println(root.reduce())
-//    fmt.Println(root.magnitude())
+    path := "./files/handout.txt"
+    if len(os.Args) > 1 {
+        path = os.Args[1]
+    }
+    nodes := ReadNodes(path)
+    max := BestTwoSum(nodes)
+    fmt.Println(max)
 }
