@@ -43,6 +43,8 @@ func ReadRebootSteps(path string) []*RebootStep {
         z0, _ := strconv.Atoi(ms[6])
         z1, _ := strconv.Atoi(ms[7])
         step := &RebootStep{action, x0, x1, y0, y1, z0, z1}
+        //step := &RebootStep{action, x0, x1, z0, z1, y0, y1}
+        //step := &RebootStep{action, z0, z1, y0, y1, x0, x1}
         steps = append(steps, step)
     }
 
@@ -73,9 +75,15 @@ func Area(rs []*g.Rectangle) int {
     return area
 }
 
-func main() {
-    //g.Demo()
-    //fmt.Println("HELL")
+func Volume(cbs []*g.Cuboid) int {
+    v := 0
+    for _, cb := range cbs {
+        v += cb.Volume()
+    }
+    return v
+}
+
+func primary() {
     path := "./files/handout.txt"
     steps := ReadRebootSteps(path)
     rects := []*g.Rectangle{}
@@ -130,4 +138,63 @@ func main() {
     fmt.Println(wrapper.Area())
     fmt.Println(Area(diff))
     fmt.Println(wrapper.Area() - Area(diff))
+}
+
+func cuboid() {
+    path := "./files/input.txt"
+    steps := ReadRebootSteps(path)
+    cbs := []*g.Cuboid{}
+    runes := "xo-+*qwertyuip"
+
+    for i, s := range steps {
+        nr := g.MakeCuboid(
+            s.x0, s.x1, s.y0, s.y1, s.z0, s.z1,
+            rune(runes[i % len(runes)]),
+        )
+        next := []*g.Cuboid{}
+        if s.action == ON {
+            next = append(cbs, nr)
+        } else {
+            for _, cb := range cbs {
+                next = append(next, cb.Difference(nr)...)
+            }
+        }
+        cbs = next
+    }
+
+    xmin, xmax, ymin, ymax, zmin, zmax := 0, 0, 0, 0, 0, 0
+    for _, cb := range cbs {
+        x0, x1, y0, y1, z0, z1 := cb.Points()
+        xmin = min(xmin, x0)
+        xmax = max(xmax, x1)
+        ymin = min(ymin, y0)
+        ymax = max(ymax, y1)
+        zmin = min(zmin, z0)
+        zmax = max(zmax, z1)
+    }
+
+    wrapper := g.MakeCuboid(xmin, xmax, ymin, ymax, zmin, zmax, 's')
+    diff := []*g.Cuboid{wrapper}
+
+    for _, cb := range cbs {
+        upd := []*g.Cuboid{}
+        for _, b := range diff {
+            upd = append(upd, b.Difference(cb)...)
+        }
+        diff = upd
+    }
+
+    fmt.Println(wrapper.Volume())
+    fmt.Println(Volume(diff))
+    fmt.Println(wrapper.Volume() - Volume(diff))
+}
+
+func demo() {
+    g.DemoRectangle()
+}
+
+func main() {
+    cuboid()
+    //primary()
+    //demo()
 }

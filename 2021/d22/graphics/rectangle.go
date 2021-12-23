@@ -1,5 +1,11 @@
 package graphics
 
+import "fmt"
+
+func foo() {
+    fmt.Println("FUCKING REQUIRED IMPORTS")
+}
+
 func (r *Rectangle) Points() (int, int, int, int) {
     return r.x0, r.x1, r.y0, r.y1
 }
@@ -39,13 +45,19 @@ func (r1 *Rectangle) Intersection(r2 *Rectangle) *Rectangle {
     return &r
 }
 
-func isIntersectLine(ax0, ax1, bx0, bx1  int) bool {
-    return ((ax0 <= bx0) && (bx0 <= ax1)) || ((bx0 <= ax0) && (ax0 <= bx1))
+func (r1 *Rectangle) IsIntersect(r2 *Rectangle) bool {
+    return r1.XLine().IsIntersect(r2.XLine()) &&
+           r1.YLine().IsIntersect(r2.YLine())
+    //return (&Line{r1.x0, r1.x1, ' '}).IsIntersect(&Line{r2.x0, r2.x1, ' '}) &&
+    //       (&Line{r1.y0, r1.y1, ' '}).IsIntersect(&Line{r2.y0, r2.y1, ' '})
 }
 
-func (r1 *Rectangle) IsIntersect(r2 *Rectangle) bool {
-    return isIntersectLine(r1.x0, r1.x1, r2.x0, r2.x1) &&
-           isIntersectLine(r1.y0, r1.y1, r2.y0, r2.y1)
+func (r *Rectangle) XLine() *Line {
+    return &Line{r.x0, r.x1, ' '}
+}
+
+func (r *Rectangle) YLine() *Line {
+    return &Line{r.y0, r.y1, ' '}
 }
 
 func (base *Rectangle) Difference(diff *Rectangle) []*Rectangle {
@@ -55,34 +67,42 @@ func (base *Rectangle) Difference(diff *Rectangle) []*Rectangle {
         return []*Rectangle{base}
     }
 
-    if (base.x0 < diff.x0) {
-        rs = append(rs, &Rectangle{
-            base.x0, min(diff.x0 - 1, base.x1),
-            base.y0, base.y1,
-            '1',
-        })
-    }
-    if base.y0 < diff.y0 {
-        rs = append(rs, &Rectangle{
-            max(base.x0, diff.x0), min(diff.x1, base.x1),
-            base.y0, diff.y0 - 1,
-            '2',
-        })
-    }
-    if (base.x1 > diff.x1) {
-        rs = append(rs, &Rectangle{
-            diff.x1 + 1, base.x1,
-            base.y0, base.y1,
-            '3',
-        })
-    }
-    if (base.y1 > diff.y1) {
-        rs = append(rs, &Rectangle{
-            max(base.x0, diff.x0), min(diff.x1, base.x1),
-            diff.y1 + 1, base.y1,
-            '4',
-        })
-    }
+    xi := base.XLine().Intersect(diff.XLine())
+    yi := base.YLine().Intersect(diff.YLine())
+
+    rs = append(rs, &Rectangle{
+        base.x0, xi.x0 - 1,
+        base.y0, yi.x0 - 1,
+        '1',
+    }, &Rectangle{
+        xi.x0, xi.x1,
+        base.y0, yi.x0 - 1,
+        '2',
+    }, &Rectangle{
+        xi.x1 + 1, base.x1,
+        base.y0, yi.x0 - 1,
+        '3',
+    }, &Rectangle{
+        xi.x1 + 1, base.x1,
+        yi.x0, yi.x1,
+        '4',
+    }, &Rectangle{
+        xi.x1 + 1, base.x1,
+        yi.x1 + 1, base.y1,
+        '5',
+    }, &Rectangle{
+        xi.x0, xi.x1,
+        yi.x1 + 1, base.y1,
+        '6',
+    }, &Rectangle{
+        base.x0, xi.x0 - 1,
+        yi.x1 + 1, base.y1,
+        '7',
+    }, &Rectangle{
+        base.x0, xi.x0 - 1,
+        yi.x0, yi.x1,
+        '8',
+    })
 
     valid := []*Rectangle{}
     for _, r := range rs {
@@ -92,19 +112,5 @@ func (base *Rectangle) Difference(diff *Rectangle) []*Rectangle {
     }
 
     return valid
-}
-
-func (r1 *Rectangle) Union(r2 *Rectangle) []*Rectangle {
-    rs := []*Rectangle{}
-    rs = append(rs, r1.Difference(r2)...)
-    rs = append(rs, r2.Difference(r1)...)
-    r := r1.Intersection(r2)
-    if r != nil {
-        rs = append(rs, r)
-    }
-    if len(rs) == 0 {
-        rs = append(rs, r1, r2)
-    }
-    return rs
 }
 

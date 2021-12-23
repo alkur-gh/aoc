@@ -44,6 +44,18 @@ func (c *Canvas) ClearRectangle(rs ...*Rectangle) {
     }
 }
 
+func (c *Canvas) DrawLine(ls ...*Line) {
+    xo, yo := c.length / 2, c.height / 2
+    for _, l := range ls {
+        if l == nil {
+            continue
+        }
+        for x := l.x0; x <= l.x1; x++ {
+            c.v[yo][x + xo] = l.r
+        }
+    }
+}
+
 func (c *Canvas) CountNonEmpty() int {
     count := 0
     for _, rs := range c.v {
