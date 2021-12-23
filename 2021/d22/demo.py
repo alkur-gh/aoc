@@ -23,7 +23,7 @@ regex = re.compile(
         'z=(?P<z0>-?\d+)\.\.(?P<z1>-?\d+)')
 
 with open('./files/simple.txt', 'r') as f:
-    for line in f.readlines()[:11]:
+    for line in f.readlines():
         m = regex.match(line)
         gs = m.groups()
         rect = make_rect(*[int(v) for v in gs[1:5]])
@@ -33,3 +33,5 @@ with open('./files/simple.txt', 'r') as f:
             union -= rect
 
 print(len(union))
+plot_rect(union)
+plt.show()

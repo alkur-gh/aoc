@@ -50,12 +50,15 @@ func ReadRebootSteps(path string) []*RebootStep {
 }
 
 func main() {
+    //g.Demo()
+    //fmt.Println("HELL")
     path := "./files/simple.txt"
     steps := ReadRebootSteps(path)
     rects := []*g.Rectangle{}
+    offs := []*g.Rectangle{}
     runes := "xo-+*qwertyuip"
 
-    for i, s := range steps[:11] {
+    for i, s := range steps {
         nr := g.MakeRectangle(
             s.x0, s.x1, s.y0, s.y1,
             rune(runes[i % len(runes)]),
@@ -64,6 +67,8 @@ func main() {
         if s.action == ON {
             next = append(rects, nr)
         } else {
+            //next = rects
+            //offs = append(offs, nr)
             for _, r := range rects {
                 next = append(next, r.Difference(nr)...)
             }
@@ -74,16 +79,27 @@ func main() {
 
     //union := []*g.Rectangle{rects[0]}
     //for _, r := range rects[1:] {
-    //    union 
+    //    next := []*g.Rectangle{}
+    //    for _, t := range union {
+    //        next = append(next, t.Union(r)...)
+    //    }
+    //    union = next
     //}
 
+    fmt.Println(offs)
+
     cvs := g.MakeCanvas(g.MakeBorders(-50, 50, -50, 50, -50, 50))
+
     area := 0
     for _, r := range rects {
         area += r.Area()
         cvs.DrawRectangle(r)
     }
+
+    for _, r := range offs {
+        cvs.ClearRectangle(r)
+    }
     cvs.Plot()
     fmt.Println(cvs.CountNonEmpty())
-    fmt.Println(area)
+    //fmt.Println(area)
 }

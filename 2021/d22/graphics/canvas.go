@@ -30,6 +30,20 @@ func (c *Canvas) DrawRectangle(rs ...*Rectangle) {
     }
 }
 
+func (c *Canvas) ClearRectangle(rs ...*Rectangle) {
+    xo, yo := c.length / 2, c.height / 2
+    for _, r := range rs {
+        if r == nil {
+            continue
+        }
+        for x := r.x0; x <= r.x1; x++ {
+            for y := r.y0; y <= r.y1; y++ {
+                c.v[y + yo][x + xo] = 0
+            }
+        }
+    }
+}
+
 func (c *Canvas) CountNonEmpty() int {
     count := 0
     for _, rs := range c.v {

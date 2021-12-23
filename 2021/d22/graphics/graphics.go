@@ -5,7 +5,8 @@ import "fmt"
 func Demo() {
     b := MakeBorders(-15, 15, -15, 15, -20, 20)
     r1 := MakeRectangle(-10, 10, -5, 5, 'x')
-    r2 := MakeRectangle(12, 13, -4, 6, 'o')
+//    r2 := MakeRectangle(5, 13, -10, -7, 'o')
+    r2 := MakeRectangle(-15, 0, -5, 13, 'o')
     //cvs1 := MakeCanvas(b)
     //cvs1.DrawRectangle(r1)
     //cvs1.DrawRectangle(r2)
