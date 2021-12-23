@@ -49,10 +49,34 @@ func ReadRebootSteps(path string) []*RebootStep {
     return steps
 }
 
+func min(a, b int) int {
+    if a < b {
+        return a
+    } else {
+        return b
+    }
+}
+
+func max(a, b int) int {
+    if a > b {
+        return a
+    } else {
+        return b
+    }
+}
+
+func Area(rs []*g.Rectangle) int {
+    area := 0
+    for _, r := range rs {
+        area += r.Area()
+    }
+    return area
+}
+
 func main() {
     //g.Demo()
     //fmt.Println("HELL")
-    path := "./files/simple.txt"
+    path := "./files/handout.txt"
     steps := ReadRebootSteps(path)
     rects := []*g.Rectangle{}
     offs := []*g.Rectangle{}
@@ -77,29 +101,33 @@ func main() {
         fmt.Println(s)
     }
 
-    //union := []*g.Rectangle{rects[0]}
-    //for _, r := range rects[1:] {
-    //    next := []*g.Rectangle{}
-    //    for _, t := range union {
-    //        next = append(next, t.Union(r)...)
-    //    }
-    //    union = next
-    //}
-
     fmt.Println(offs)
 
-    cvs := g.MakeCanvas(g.MakeBorders(-50, 50, -50, 50, -50, 50))
-
-    area := 0
+    xmin, xmax, ymin, ymax := 0, 0, 0, 0
     for _, r := range rects {
-        area += r.Area()
-        cvs.DrawRectangle(r)
+        x0, x1, y0, y1 := r.Points()
+        xmin = min(xmin, x0)
+        xmax = max(xmax, x1)
+        ymin = min(ymin, y0)
+        ymax = max(ymax, y1)
     }
 
-    for _, r := range offs {
-        cvs.ClearRectangle(r)
+    wrapper := g.MakeRectangle(xmin, xmax, ymin, ymax, 's')
+    diff := []*g.Rectangle{wrapper}
+
+    for _, r := range rects {
+        upd := []*g.Rectangle{}
+        for _, b := range diff {
+            upd = append(upd, b.Difference(r)...)
+        }
+        diff = upd
     }
-    cvs.Plot()
-    fmt.Println(cvs.CountNonEmpty())
-    //fmt.Println(area)
+
+    //cvs := g.MakeCanvas(g.MakeBorders(-50, 50, -50, 50, -50, 50))
+    //cvs.DrawRectangle(diff...)
+    //cvs.Plot()
+
+    fmt.Println(wrapper.Area())
+    fmt.Println(Area(diff))
+    fmt.Println(wrapper.Area() - Area(diff))
 }

@@ -1,5 +1,9 @@
 package graphics
 
+func (r *Rectangle) Points() (int, int, int, int) {
+    return r.x0, r.x1, r.y0, r.y1
+}
+
 func (r *Rectangle) Area() int {
     return (r.x1 - r.x0 + 1) * (r.y1 - r.y0 + 1)
 }
