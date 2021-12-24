@@ -4,6 +4,7 @@ import (
     "fmt"
     "os"
     "bufio"
+    "math"
 )
 
 const (
@@ -11,10 +12,18 @@ const (
 )
 
 var TARGET_POSITIONS = map[FigureType][]Position{
-    'A': {Position{2, 3}, Position{3, 3}},
-    'B': {Position{2, 5}, Position{3, 5}},
-    'C': {Position{2, 7}, Position{3, 7}},
-    'D': {Position{2, 9}, Position{3, 9}},
+    //'A': {Position{2, 3}, Position{3, 3}},
+    //'B': {Position{2, 5}, Position{3, 5}},
+    //'C': {Position{2, 7}, Position{3, 7}},
+    //'D': {Position{2, 9}, Position{3, 9}},
+    'A': {Position{2, 3}, Position{3, 3}, Position{4, 3}, Position{5, 3}},
+    'B': {Position{2, 5}, Position{3, 5}, Position{4, 5}, Position{5, 5}},
+    'C': {Position{2, 7}, Position{3, 7}, Position{4, 7}, Position{5, 7}},
+    'D': {Position{2, 9}, Position{3, 9}, Position{4, 9}, Position{5, 9}},
+}
+
+var MOVE_COST = map[FigureType]int {
+    'A': 1, 'B': 10, 'C': 100, 'D': 1000,
 }
 
 type Field struct {
@@ -35,6 +44,23 @@ type Figure struct {
 type Move struct {
     figure Figure
     dest Position
+}
+
+func abs(a int) int {
+    if a > 0 {
+        return a
+    } else {
+        return -a
+    }
+}
+
+func (m *Move) Cost() int {
+    c := abs(m.figure.position.j - m.dest.j)
+    c += abs(m.dest.i - 1)
+    if m.figure.position.i > 1 {
+        c += abs(m.figure.position.i - 1)
+    }
+    return c * MOVE_COST[m.figure.figureType]
 }
 
 func (f *Field) Figures() map[FigureType][]Figure {
@@ -79,17 +105,23 @@ func (f *Figure) PossibleMoves(field *Field) []Move {
     tps := TARGET_POSITIONS[f.figureType]
     v := field.v
 
-    if ((f.position == tps[0]) &&
-        (v[tps[1].i][tps[1].j] == rune(f.figureType))) ||
-       (f.position == tps[1]) {
-        return ms
+    if f.position.j == tps[0].j {
+        flag := true
+        for i := tps[len(tps) - 1].i; i > f.position.i; i-- {
+            if v[i][f.position.j] != rune(f.figureType) {
+                flag = false
+            }
+        }
+        if flag {
+            return ms
+        }
     }
 
-    if (f.position.i == 3) &&
-       (v[f.position.i - 1][f.position.j] != EMPTY) {
-        return ms 
+    for i := 1; i < f.position.i; i++ {
+        if v[i][f.position.j] != EMPTY {
+            return ms
+        }
     }
-
 
     left, right := f.position.j - 1, f.position.j + 1
     for v[1][left] == EMPTY {
@@ -99,31 +131,24 @@ func (f *Figure) PossibleMoves(field *Field) []Move {
         right++
     }
 
-    //if f.position.i == 1 {
-    //    high, low := tps[0], tps[1]
-    //    if (v[low.i][low.j] == rune(f.figureType)) &&
-    //       (v[high.i][high.j] == EMPTY) {
-    //        ms = append(ms, Move{*f, high})
-    //    }
-    //    if (v[low.i][low.j] == EMPTY) &&
-    //       (v[high.i][high.j] == EMPTY) {
-    //        ms = append(ms, Move{*f, low})
-    //    }
-    //    return ms
-    //}
-
-    high, low := tps[0], tps[1]
-    if (left < low.j) && (low.j < right) {
-        if v[low.i][low.j] == EMPTY {
-            return append(ms, Move{*f, low})
-        }
-        if (v[low.i][low.j] == rune(f.figureType)) && (v[high.i][high.j] == EMPTY) {
-            return append(ms, Move{*f, high})
+    if (left < tps[0].j) && (tps[0].j < right) {
+        for k := len(tps) - 1; k >= 0; k-- {
+            tp := tps[k]
+            if v[tp.i][tp.j] == EMPTY {
+                return append(ms, Move{*f, tp})
+            }
+            if v[tp.i][tp.j] != rune(f.figureType) {
+                break
+            }
         }
     }
 
+    if f.position.i == 1 {
+        return ms
+    }
+
     for j := left + 1; j < right; j++ {
-        if f.position.j == j {
+        if (j == 3) || (j == 5) || (j == 7) || (j == 9) {
             continue
         }
         ms = append(ms, Move{*f, Position{1, j}})
@@ -145,7 +170,7 @@ func (f *Field) PossibleMoves() []Move {
 func (f *Field) Copy() *Field {
     v := [][]rune{}
     for _, rs := range f.v {
-        xs:= []rune{}
+        xs := []rune{}
         xs = append(xs, rs...)
         v = append(v, xs)
     }
@@ -159,25 +184,60 @@ func (f *Field) MakeMove(move Move) *Field {
     return res
 }
 
-func rec(f *Field) {
-    f.Print()
+func (f *Field) IsComplete() bool {
+    for t, tps := range TARGET_POSITIONS {
+        for _, tp := range tps {
+            if f.v[tp.i][tp.j] != rune(t) {
+                return false
+            }
+        }
+    }
+    return true
+}
+
+func rec(f *Field, score int, trace []Move, thresh int) (int, bool, []Move) {
     moves := f.PossibleMoves()
+    min := math.MaxInt64
+    //f.Print()
+    if score > thresh {
+        return score, false, trace
+    }
+
     if len(moves) == 0 {
-        fmt.Println("TERM")
-        return
+        //fmt.Println(score)
+        //fmt.Println("TERM")
+        return score, f.IsComplete(), trace
     }
+    min_trace := trace
     for _, move := range moves {
-        rec(f.MakeMove(move))
+        score, complete, cand := rec(f.MakeMove(move), score + move.Cost(),
+                                     append(trace, move), min)
+        if complete && (score < min) {
+            min = score
+            min_trace = cand
+        }
     }
+    return min, min != math.MaxInt64, min_trace
 }
 
 func main() {
-    path := "./files/test.txt"
+    path := "./files/input.txt"
     field := ReadField(path)
-    rec(field)
-//    field.Print()
-//    for _, move := range field.PossibleMoves() {
-//        fmt.Println(move)
-//        field.MakeMove(move).Print()
-//    }
+    score, _, trace := rec(field, 0, []Move{}, math.MaxInt64)
+    fmt.Println(score)
+    field.Print()
+    acc := 0
+    for _, move := range trace {
+        acc += move.Cost()
+        fmt.Println(acc)
+        field = field.MakeMove(move)
+        field.Print()
+    }
+    //fmt.Println(field.IsComplete())
+    //field.Print()
+    //for _, move := range field.PossibleMoves() {
+    //    fmt.Println(move)
+    //    fmt.Println(move.Cost())
+    //    field.MakeMove(move).Print()
+    //}
 }
