@@ -3,9 +3,11 @@ package main
 import (
     "fmt"
     "os"
+    "math"
     "bufio"
     "strings"
     "strconv"
+    "sort"
 )
 
 const (
@@ -118,19 +120,42 @@ type Node struct {
     value string
     op string
     args []*Node
+    possibleValues []int
 }
 
 func MakeValueNode(id int, value string) *Node {
-    return &Node{true, id, value, "", []*Node{}}
+    return &Node{true, id, value, "", []*Node{}, []int{}}
 }
 
 func MakeOperationNode(id int, op string, args []*Node) *Node {
-    return &Node{false, id, "", op, args}
+    return &Node{false, id, "", op, args, []int{}}
+}
+
+func sortedValues(m map[int]bool) []int {
+    values := []int{}
+    for k, p := range m {
+        if p {
+            values = append(values, k)
+        }
+    }
+    sort.Ints(values)
+    if len(values) > 5 {
+        return []int{values[0], values[len(values) - 1]}
+    } else {
+        return values
+    }
 }
 
 func (node *Node) String() string {
     if node.isValue {
         return fmt.Sprintf("\"%d:%s\"", node.id, node.value)
+    } else if len(node.possibleValues) == 2 {
+        //pstrs := []string{}
+        //for _, p := range sortedValues(node.possibleValues) {
+        //    pstrs = append(pstrs, strconv.Itoa(p))
+        //}
+        //return fmt.Sprintf("\"%d:%s[%d]\"", node.id, node.op, len(node.possibleValues))
+        return fmt.Sprintf("\"%d:%s[%d,%d]\"", node.id, node.op, node.possibleValues[0], node.possibleValues[1])
     } else {
         return fmt.Sprintf("\"%d:%s\"", node.id, node.op)
     }
@@ -140,13 +165,26 @@ func (node *Node) IsInput() bool {
     return node.isValue && strings.HasPrefix(node.value, "INPUT")
 }
 
-func (node *Node) Copy() *Node {
-    return &Node{node.isValue, node.id, node.value, node.op, node.args}
+func (node *Node) FindById(id int) *Node {
+    if node.id == id {
+        return node
+    }
+    if node.isValue {
+        return nil
+    }
+    left := node.args[0].FindById(id)
+    if left != nil {
+        return left
+    }
+    right := node.args[1].FindById(id)
+    if right != nil {
+        return right
+    }
+    return nil
 }
 
-
 func rec(node *Node, visited map[string]int, ch chan string) {
-    if visited[node.String()] == 2 {
+    if visited[node.String()] > 0 {
         return
     }
     visited[node.String()]++
@@ -183,97 +221,181 @@ func DumpGraph(root *Node) {
     writer.Flush()
 }
 
-func simp_rec(node *Node, visited map[string]bool) *Node {
-    if visited[node.String()] {
-        fmt.Printf("HIT VISITED ON: %s\n", node)
-        return node
-    }
-
+func simp_rec(node *Node, simplified map[string]*Node) *Node {
     if node.isValue {
         return node
     }
-    visited[node.String()] = true
-    left, right := simp_rec(node.args[0], visited), simp_rec(node.args[1], visited)
+    repr := node.String()
+    simp, prs := simplified[repr]
+    if prs {
+        return simp
+    }
+    left, right := simp_rec(node.args[0], simplified), simp_rec(node.args[1], simplified)
     node.args = []*Node{left, right}
+    result := node
     switch node.op {
     case MUL:
-        if left.isValue && right.isValue {
+        if left.isValue && right.isValue && !left.IsInput() && !right.IsInput() {
             a, _ := strconv.Atoi(left.value)
             b, _ := strconv.Atoi(right.value)
-            return MakeValueNode(node.id, strconv.Itoa(a * b))
+            result = MakeValueNode(node.id, strconv.Itoa(a * b))
+        } else if (left.isValue && (left.value == "0")) ||
+                  (right.isValue && (right.value == "0")) {
+            result = MakeValueNode(node.id, "0")
+        } else if left.isValue && (left.value == "1") {
+            result = right
+        } else if right.isValue && (right.value == "1") {
+            result = left
         }
-        if (left.isValue && (left.value == "0")) ||
-           (right.isValue && (right.value == "0")) {
-            node.isValue = true
-            node.value = "0"
-            node.args = []*Node{}
-        }
-        if left.isValue && (left.value == "1") {
-            return right
-        }
-        if right.isValue && (right.value == "1") {
-            return left
-        }
-        return node
     case ADD:
-        if left.isValue && right.isValue {
+        if left.isValue && right.isValue && !left.IsInput() && !right.IsInput() {
             a, _ := strconv.Atoi(left.value)
             b, _ := strconv.Atoi(right.value)
-            return MakeValueNode(node.id, strconv.Itoa(a + b))
+            result = MakeValueNode(node.id, strconv.Itoa(a + b))
+        } else if left.isValue && (left.value == "0") {
+            result = right
+        } else if right.isValue && (right.value == "0") {
+            result = left
         }
-        if left.isValue && (left.value == "0") {
-            return right
-        }
-        if right.isValue && (right.value == "0") {
-            return left
-        }
-        return node
     case DIV:
-        if left.isValue && right.isValue {
+        if left.isValue && right.isValue && !left.IsInput() && !right.IsInput() {
             a, _ := strconv.Atoi(left.value)
             b, _ := strconv.Atoi(right.value)
-            return MakeValueNode(node.id, strconv.Itoa(a / b))
+            result = MakeValueNode(node.id, strconv.Itoa(a / b))
+        } else if right.isValue && (right.value == "1") {
+            result = left
         }
-        if right.isValue && (right.value == "1") {
-            return left
-        }
-        return node
     case MOD:
-        if left.isValue && right.isValue {
+        if left.isValue && right.isValue && !left.IsInput() && !right.IsInput() {
             a, _ := strconv.Atoi(left.value)
             b, _ := strconv.Atoi(right.value)
-            return MakeValueNode(node.id, strconv.Itoa(a % b))
+            result = MakeValueNode(node.id, strconv.Itoa(a % b))
         }
-        return node
     case EQL:
-        //if left.isValue && right.isValue {
-        //    value := 0
-        //    if left.value == right.value {
-        //        value = 1
-        //    }
-        //    return MakeValueNode(node.id, strconv.Itoa(value))
-        //}
-        if !((left.IsInput() && right.isValue) || (right.IsInput() && left.isValue)) {
-            return node
-        }
-
-        req := 0
-        if left.IsInput() {
-            req, _ = strconv.Atoi(right.value)
+        if left.isValue && right.isValue && !left.IsInput() && !right.IsInput() {
+            value := 0
+            if left.value == right.value {
+                value = 1
+            }
+            result = MakeValueNode(node.id, strconv.Itoa(value))
+        } else if !((left.IsInput() && right.isValue) || (right.IsInput() && left.isValue)) {
+            result = node
         } else {
-            req, _ = strconv.Atoi(left.value)
+            req := 0
+            if left.IsInput() {
+                req, _ = strconv.Atoi(right.value)
+            } else {
+                req, _ = strconv.Atoi(left.value)
+            }
+            if (req <= 0) || (req >= 10) {
+                result = MakeValueNode(node.id, "0")
+            }
         }
-        if (req <= 0) || (req >= 10) {
-            return MakeValueNode(node.id, "0")
-        }
-        return node
-    default:
-        return node
     }
+    result.possibleValues = node.possibleValues
+    simplified[repr] = result
+    return result
 }
 
 func Simplify(node *Node) *Node {
-    return simp_rec(node, make(map[string]bool))
+    return simp_rec(node, make(map[string]*Node))
+}
+
+func PopulatePossibleValues(node *Node) *Node {
+    if len(node.possibleValues) != 0 {
+        return node
+    }
+    if node.IsInput() {
+        node.possibleValues = []int{1, 9}
+        return node
+    }
+    if node.isValue {
+        v, _ := strconv.Atoi(node.value)
+        node.possibleValues = []int{v, v}
+        return node
+    }
+    left := PopulatePossibleValues(node.args[0])
+    right := PopulatePossibleValues(node.args[1])
+    node.args[0] = left
+    node.args[1] = right
+    switch node.op {
+    case ADD:
+        node.possibleValues = []int{
+            left.possibleValues[0] + right.possibleValues[0],
+            left.possibleValues[1] + right.possibleValues[1],
+        }
+    case MOD:
+        min, max := math.MaxInt64, math.MinInt64
+        for a := left.possibleValues[0]; a <= left.possibleValues[1]; a++ {
+            for b := right.possibleValues[0]; b <= right.possibleValues[1]; b++ {
+                v := a % b
+                if v < min {
+                    min = v
+                }
+                if v > max {
+                    max = v
+                }
+            }
+        }
+        node.possibleValues = []int{min, max}
+    case MUL:
+        min, max := math.MaxInt64, math.MinInt64
+        for a := left.possibleValues[0]; a <= left.possibleValues[1]; a++ {
+            for b := right.possibleValues[0]; b <= right.possibleValues[1]; b++ {
+                v := a * b
+                if v < min {
+                    min = v
+                }
+                if v > max {
+                    max = v
+                }
+            }
+        }
+        node.possibleValues = []int{min, max}
+    case DIV:
+        min, max := math.MaxInt64, math.MinInt64
+        for a := left.possibleValues[0]; a <= left.possibleValues[1]; a++ {
+            for b := right.possibleValues[0]; b <= right.possibleValues[1]; b++ {
+                v := a / b
+                if v < min {
+                    min = v
+                }
+                if v > max {
+                    max = v
+                }
+            }
+        }
+        node.possibleValues = []int{min, max}
+    case EQL:
+        one, zero := false, false
+        for a := left.possibleValues[0]; a <= left.possibleValues[1]; a++ {
+            for b := right.possibleValues[0]; b <= right.possibleValues[1]; b++ {
+                if a == b {
+                    one = true
+                } else {
+                    zero = false
+                }
+            }
+            if one && zero {
+                break
+            }
+        }
+        min, max := 0, 0
+        if one && zero {
+            min, max = 0, 1
+        } else if zero {
+            min, max = 0, 0
+        } else {
+            min, max = 1, 1
+        }
+        node.possibleValues = []int{min, max}
+    }
+    if (len(node.possibleValues) == 2) && (node.possibleValues[0] == node.possibleValues[1]) {
+        v := node.possibleValues[0]
+        result := MakeValueNode(node.id, strconv.Itoa(v))
+        return PopulatePossibleValues(result)
+    }
+    return node
 }
 
 func demo() {
@@ -287,7 +409,7 @@ func demo() {
     }
     id := 4
     input_count := 0
-    for _, inst := range insts[:18] {
+    for _, inst := range insts {
         if inst.itype == INP {
             input_count++
             value := fmt.Sprintf("INPUT-%d", input_count)
@@ -309,8 +431,22 @@ func demo() {
         })
     }
 
-//    DumpGraph(Simplify(registers["z"]))
-    DumpGraph(registers["z"])
+    root := Simplify(registers["z"])
+    root = PopulatePossibleValues(root)
+    fmt.Println("POPULATED")
+    DumpGraph(root)
+    //DumpGraph(Simplify(registers["z"]))
+    //DumpGraph(registers["z"])
+    //traverse(registers["z"])
+}
+
+func traverse(node *Node) {
+    fmt.Println(node)
+    if node.isValue {
+        return
+    }
+    traverse(node.args[0])
+    traverse(node.args[1])
 }
 
 func primary() {
@@ -322,33 +458,4 @@ func primary() {
 func main() {
     demo()
     //primary()
-    //for i0 := 9; i0 >= 1; i0-- {
-    //for i1 := 9; i1 >= 1; i1-- {
-    //for i2 := 9; i2 >= 1; i2-- {
-    //for i3 := 9; i3 >= 1; i3-- {
-    //for i4 := 9; i4 >= 1; i4-- {
-    //for i5 := 9; i5 >= 1; i5-- {
-    //for i6 := 9; i6 >= 1; i6-- {
-    //for i7 := 9; i7 >= 1; i7-- {
-    //for i8 := 9; i8 >= 1; i8-- {
-    //for i9 := 9; i9 >= 1; i9-- {
-    //for i10 := 9; i10 >= 1; i10-- {
-    //for i11 := 9; i11 >= 1; i11-- {
-    //for i12 := 9; i12 >= 1; i12-- {
-    //for i13 := 9; i13 >= 1; i13-- {
-    //    go TryInputs(insts, []int{i0, i1, i2, i3, i4, i5, i6, i7, i8, i9, i10, i11, i12, i13})
-    //}
-    //}
-    //}
-    //}
-    //}
-    //}
-    //}
-    //}
-    //}
-    //}
-    //}
-    //}
-    //}
-    //}
 }
